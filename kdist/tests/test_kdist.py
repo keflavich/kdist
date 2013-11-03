@@ -9,6 +9,6 @@ def test_scalar():
 
 def test_vector():
     d = kdist([43,48],[0,0],[7,55])
-    np.testing.assert_array_almost_equal(d,np.array([  692.76013694,  4636.07754293]))
+    np.testing.assert_array_almost_equal(d,np.array([692.76013694,  4636.07754293]))
     d = kdist([43,48],[0,0],[7,55],near=False)
-    np.testing.assert_array_almost_equal(d,np.array([ 11593.98205026,   6605.3166439 ]))
+    np.testing.assert_array_almost_equal(d,np.array([11593.98205026,   6605.3166439]))

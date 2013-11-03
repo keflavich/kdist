@@ -1,10 +1,12 @@
 from astropy import coordinates as coords
 import astropy.units as u
 from numpy import sqrt, abs, pi, cos, sin, max, ones, array
+from warnings import warn
+import numpy as np
 
 def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
-        kinematic=True,regular=False,rrgal=False,verbose=False,
-        inverse=False,silent=False, returnvtan=False):
+          kinematic=True,regular=False,rrgal=False,verbose=False,
+          inverse=False,silent=False, returnvtan=False):
     """
     Return the distance to an object given its Galactic longitude, latitude,
     and LSR velocity assuming a uniform rotation curve
@@ -13,7 +15,7 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
     ----------
     l, b: float,float
         Galactic Longitude and Latitude (decimal degrees)
-        (can also input astropy degrees)
+        (can also input astropy degrees and vectors)
     v: float
         Velocity w.r.t. LSR in km/s
     near: bool
@@ -44,8 +46,6 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
     return values.
     """
 
-    dtor = pi/180.
-
     if regular:
         vs = 0.0 
     else:
@@ -60,10 +60,10 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
         solarmotion_dec = (28+7/6e1+3.96/3.6e3)
         solarmotion_mag = 16.55294
 
-    if hasattr(l,'unit') and hasattr(b,'unit'):
-        cg = coords.Galactic(l, b)
-    else:
-        cg = coords.Galactic(l*u.deg, b*u.deg)
+    if not hasattr(l,'unit') or not hasattr(b,'unit'):
+        l = np.array(l)*u.deg
+        b = np.array(b)*u.deg
+    cg = coords.Galactic(l, b)
     solarmotion = coords.ICRS(solarmotion_ra*u.deg,solarmotion_dec*u.deg)
     #  ra,dec = cg.j2000()
     #  gcirc, 2, solarmotion_ra, solarmotion_dec, ra, dec, theta
@@ -76,44 +76,52 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
     bigv = 5.23
     bigw = 7.17
 
-    v = vhelio+(bigu*cos(l*dtor)+bigv*sin(l*dtor))*cos(b*dtor)+bigw*sin(b*dtor)
+    lrad,brad = l.to(u.radian).value, b.to(u.radian).value
+    ldeg,bdeg = l.to(u.degree).value, b.to(u.degree).value
+
+    v = vhelio+(bigu*cos(lrad)+bigv*sin(lrad))*cos(brad)+bigw*sin(brad)
 
     # Compute tangent distance and velocity
-    rtan = r0*(cos(l*dtor))/(cos(b*dtor))
-    vTEMP = (1/sin(l*dtor) - v0/(v0-vs)) * ((v0-vs)*sin(l*dtor)*cos(b*dtor))
-    vhelioTEMP = vTEMP - ((bigu*cos(l*dtor)+bigv*sin(l*dtor))*cos(b*dtor)+bigw*sin(b*dtor))
+    rtan = r0*(cos(lrad))/(cos(brad))
+    vTEMP = (1/sin(lrad) - v0/(v0-vs)) * ((v0-vs)*sin(lrad)*cos(brad))
+    vhelioTEMP = vTEMP - ((bigu*cos(lrad)+bigv*sin(lrad))*cos(brad)+bigw*sin(brad))
     vtan = vhelioTEMP+solarmotion_mag*cos(theta)
     if returnvtan:
         return vtan
 
     # This is r/r0
-    null = (v0/(v0-vs)+v/((v0-vs)*sin(l*dtor)*cos(b*dtor)))**(-1)
+    null = (v0/(v0-vs)+v/((v0-vs)*sin(lrad)*cos(brad)))**(-1)
 
     if inverse:
-        radical = cos(l*dtor) - cos(b*dtor) * vin / r0 
-        null = sqrt(1 - cos(l*dtor)**2 + radical**2)
-        v = (1/null - v0/(v0-vs)) * ((v0-vs)*sin(l*dtor)*cos(b*dtor))
-        vhelio = v - ((bigu*cos(l*dtor)+bigv*sin(l*dtor))*cos(b*dtor)+bigw*sin(b*dtor))
+        radical = cos(lrad) - cos(brad) * vin / r0 
+        null = sqrt(1 - cos(lrad)**2 + radical**2)
+        v = (1/null - v0/(v0-vs)) * ((v0-vs)*sin(lrad)*cos(brad))
+        vhelio = v - ((bigu*cos(lrad)+bigv*sin(lrad))*cos(brad)+bigw*sin(brad))
         vlsr = vhelio+solarmotion_mag*cos(theta)
         return vlsr
     else:
-        if vin > vtan:
+        if np.any(vin > vtan):
             if not silent:
-                print "Velocity is greater than tangent velocity v=%f.  Returning tangent distance." % vtan
-            if rrgal: return rtan,null*r0
+                warn("Velocity is greater than tangent velocity.  Returning tangent distance.")
+            if rrgal:
+                return rtan,null*r0
             return rtan
         #  The > 0 traps things near the tangent point and sets them to the
         #  tangent distance.  So quietly.  Perhaps this should pitch a flag?
-        radical = max(sqrt(((cos(l*dtor))**2-(1-null**2)) ),0)
+        radical = sqrt(((cos(lrad))**2-(1-null**2)))
+        if np.isscalar(radical):
+            radical = max(radical,0)
+        else:
+            radical[radical<0] = 0
 
-        fardist = r0*(cos(l*dtor)+radical)/(cos(b*dtor))
+        fardist = r0*(cos(lrad)+radical)/(cos(brad))
 
-        neardist = r0*(cos(l*dtor)-radical)/(cos(b*dtor))
+        neardist = r0*(cos(lrad)-radical)/(cos(brad))
 
     rgal = null*r0
-    ind = (abs(l-180) < 90)
+    ind = (abs(ldeg-180) < 90)
     if ind.sum() > 1: neardist[ind] = fardist[ind]
-    elif ind==True: neardist = fardist
+    elif np.isscalar(ind) and ind==True: neardist = fardist
 
     if not(near): dist = fardist
     else: dist = neardist
@@ -125,6 +133,7 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
     return abs(dist)
 
 def vector_kdist(x,y,z,**kwargs):
+    """ obsolete """
 
     if type(z)==type(1) or type(z)==type(1.0):
         z = z*ones(len(x))

@@ -100,12 +100,6 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
         vlsr = vhelio+solarmotion_mag*cos(theta)
         return vlsr
     else:
-        if np.any(vin > vtan):
-            if not silent:
-                warn("Velocity is greater than tangent velocity.  Returning tangent distance.")
-            if rrgal:
-                return rtan,null*r0
-            return rtan
         #  The > 0 traps things near the tangent point and sets them to the
         #  tangent distance.  So quietly.  Perhaps this should pitch a flag?
         radical = sqrt(((cos(lrad))**2-(1-null**2)))
@@ -126,10 +120,19 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
     if not(near): dist = fardist
     else: dist = neardist
 
+    if np.any(vin > vtan):
+        if not silent:
+            warn("Velocity is greater than tangent velocity.  Returning tangent distance.")
+        dist[vin>vtan] = rtan[vin>vtan]
+
     if verbose:
         print "radical: %f  null: %f  vin: %f  v: %f  vhelio: %f rgal: %f  neardist: %f  fardist: %f" % (radical,null,vin,v,vhelio,rgal,neardist,fardist)
 
-    if rrgal: return abs(dist),abs(rgal)
+    if rrgal:
+        if np.any(vin>vtan):
+            dist[vin>vtan] = rtan[vin>vtan]
+            rgal[vin>vtan] = (null*r0)[vin>vtan]
+        return abs(dist),abs(rgal)
     return abs(dist)
 
 def vector_kdist(x,y,z,**kwargs):

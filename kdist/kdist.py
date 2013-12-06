@@ -114,16 +114,23 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
 
     rgal = null*r0
     ind = (abs(ldeg-180) < 90)
-    if ind.sum() > 1: neardist[ind] = fardist[ind]
-    elif np.isscalar(ind) and ind==True: neardist = fardist
+    if ind.sum() > 1:
+        neardist[ind] = fardist[ind]
+    elif np.isscalar(ind) and ind==True:
+        neardist = fardist
 
-    if not(near): dist = fardist
-    else: dist = neardist
+    if not(near):
+        dist = fardist
+    else:
+        dist = neardist
 
     if np.any(vin > vtan):
         if not silent:
             warn("Velocity is greater than tangent velocity.  Returning tangent distance.")
-        dist[vin>vtan] = rtan[vin>vtan]
+        if np.isscalar(dist):
+            dist = rtan
+        else:
+            dist[vin>vtan] = rtan[vin>vtan]
 
     if verbose:
         print "radical: %f  null: %f  vin: %f  v: %f  vhelio: %f rgal: %f  neardist: %f  fardist: %f" % (radical,null,vin,v,vhelio,rgal,neardist,fardist)

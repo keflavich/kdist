@@ -4,9 +4,9 @@ from numpy import sqrt, abs, pi, cos, sin, max, ones, array
 from warnings import warn
 import numpy as np
 
-def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
-          kinematic=True,regular=False,rrgal=False,verbose=False,
-          inverse=False,silent=False, returnvtan=False):
+def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,
+          dynamical=False, kinematic=True, regular=False, rrgal=False,
+          verbose=False, inverse=False, silent=False, returnvtan=False):
     """
     Return the distance to an object given its Galactic longitude, latitude,
     and LSR velocity assuming a uniform rotation curve
@@ -22,7 +22,7 @@ def kdist(l, b, vin, near=True,r0=8.4e3,v0=2.54e2,dynamical=False,
         Return the near kinematic distance if set, otherwise return the far
         kinematic distance.  The "Kinematic Distance Ambiguity" (i.e., near/far
         for one velocity) only exists for quadrants 1 & 4 (-90<l<90)
-    RO, VO: float,float
+    rO, vO: float,float
         Values for galactocentric distance for sun and velocity of the LSR
         around the GC.  Default to 8.4 kpc and 254 km/s (Reid et al., 2009)
     rrgal: bool
